@@ -11,11 +11,13 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 from functools import lru_cache
 
-from .prompt_loader import SafePromptLoader, PromptConfigurationError
-
 logger = logging.getLogger(__name__)
 
-class UnifiedConfigLoader(SafePromptLoader):
+class ConfigurationError(Exception):
+    """Custom exception for configuration issues"""
+    pass
+
+class UnifiedConfigLoader:
     """
     Unified configuration loader that extends SafePromptLoader
     Handles both agent prompts and data loader configuration
@@ -28,8 +30,7 @@ class UnifiedConfigLoader(SafePromptLoader):
         Args:
             environment: Environment name for env-specific overrides
         """
-        # Initialize parent class for prompt loading
-        super().__init__(environment=environment)
+        self.environment = environment
         
         # Add dataloader config path
         self.dataloader_config_path = self._get_dataloader_config_path()
@@ -51,7 +52,7 @@ class UnifiedConfigLoader(SafePromptLoader):
             Parsed dataloader configuration dictionary
             
         Raises:
-            PromptConfigurationError: If config loading/validation fails
+            ConfigurationError: If config loading/validation fails
         """
         try:
             # Check if config file exists

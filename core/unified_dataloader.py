@@ -44,6 +44,12 @@ except ImportError:
     INSTRUCTOR_AVAILABLE = False
 
 try:
+    from .graph_builders import GraphBuilder, create_graph_builder
+    GRAPH_BUILDERS_AVAILABLE = True
+except ImportError:
+    GRAPH_BUILDERS_AVAILABLE = False
+
+try:
     from langchain_experimental.graph_transformers import LLMGraphTransformer
     from langchain_openai import ChatOpenAI
     from langchain_core.documents import Document
@@ -334,12 +340,14 @@ class TextProcessor:
             chunk_size = self.chunking_config.get('max_chunk_size', 2000)
             return [text[i:i+chunk_size] for i in range(0, len(text), chunk_size)]
 
+# NOTE: LangChainAIExtractor has been replaced by the more extensible 
+# AIGraphBuilder architecture in core/graph_builders.py
+# This provides better separation of concerns and extensibility
+
 class LangChainAIExtractor:
     """
-    Phase 3: AI Entity Extraction using LangChain LLMGraphTransformer
-    
-    Universal, domain-agnostic knowledge graph construction!
-    Works with any data domain - servers, applications, documents, etc.
+    DEPRECATED: This class has been replaced by AIGraphBuilder in core/graph_builders.py
+    Keeping for backward compatibility during transition
     """
     
     def __init__(self, llm_config: Dict[str, Any], neo4j_config: Dict[str, Any]):
@@ -497,18 +505,8 @@ class LangChainAIExtractor:
             graph_doc = graph_documents[0]
             logger.info(f"✅ Extracted {len(graph_doc.nodes)} nodes, {len(graph_doc.relationships)} relationships")
             
-            # Add system_id to all nodes as a property
-            for node in graph_doc.nodes:
-                if not hasattr(node, 'properties') or node.properties is None:
-                    node.properties = {}
-                node.properties['system_id'] = system_id
-            
-            # Load directly to Neo4j
-            self.neo4j_graph.add_graph_documents(
-                graph_documents,
-                baseEntityLabel=True,  # Add base label for better organization
-                include_source=True    # Include source document for traceability
-            )
+            # Load directly to Neo4j - following LangChain example exactly
+            self.neo4j_graph.add_graph_documents(graph_documents)
             
             logger.info(f"🗄️ Loaded graph data for {system_id} to Neo4j")
             return True
@@ -846,8 +844,7 @@ class UniversalDataLoader:
         # Initialize components based on configuration
         self._initialize_data_source()
         self._initialize_text_processor()
-        self._initialize_ai_extractor()
-        self._initialize_graph_loader()
+        self._initialize_graph_builder()
         
         logger.info(f"🚀 UniversalDataLoader initialized for {self.environment}")
     
@@ -872,24 +869,27 @@ class UniversalDataLoader:
             self.text_processor = None
             logger.info("📝 Text processing disabled by configuration")
     
-    def _initialize_ai_extractor(self):
-        """Initialize LangChain AI extractor based on configuration"""
+    def _initialize_graph_builder(self):
+        """Initialize knowledge graph builder based on configuration"""
         if self.config_loader.is_phase_enabled('ai_extraction'):
             llm_config = self.config_loader.get_llm_config()
             neo4j_config = self.config_loader.get_neo4j_config()
-            self.ai_extractor = LangChainAIExtractor(llm_config, neo4j_config)
+            
+            # Use new extensible graph builder architecture
+            self.graph_builder = create_graph_builder(
+                'ai',
+                llm_config=llm_config,
+                neo4j_config=neo4j_config
+            )
+            logger.info("🧠 AI Knowledge Graph Builder initialized")
         else:
-            self.ai_extractor = None
-            logger.info("🧠 AI extraction disabled by configuration")
+            self.graph_builder = None
+            logger.info("🧠 Knowledge graph creation disabled by configuration")
     
     def _initialize_graph_loader(self):
-        """Initialize Neo4j graph loader based on configuration"""
-        if self.config_loader.is_phase_enabled('graph_loading'):
-            neo4j_config = self.config_loader.get_neo4j_config()
-            self.graph_loader = Neo4jGraphLoader(neo4j_config)
-        else:
-            self.graph_loader = None
-            logger.info("🗄️ Graph loading disabled by configuration")
+        """Graph loader not needed in AI-only mode - LangChain handles Neo4j directly"""
+        self.graph_loader = None
+        logger.info("🗄️ AI-only mode: LangChain handles Neo4j directly (no separate graph loader needed)")
     
     def load_system_data(self, system_id: str) -> Tuple[List[SystemEntity], List[EventEntity]]:
         """
@@ -915,38 +915,31 @@ class UniversalDataLoader:
             else:
                 processed_data = {path: {'cleaned_content': content} for path, content in raw_files.items()}
             
-            # Phase 3 & 4 Combined: AI extraction + Graph loading (if enabled)
-            if self.ai_extractor:
-                # LangChain approach: extract and load directly to Neo4j
-                extraction_success = self.ai_extractor.extract_and_load_to_graph(system_id, processed_data)
-                if extraction_success:
-                    logger.info(f"✅ Complete pipeline: AI extraction + graph loading successful for {system_id}")
-                    # Return placeholder objects for backward compatibility
-                    systems = self._create_basic_system_info(system_id, processed_data)
-                    events = []
-                else:
-                    logger.warning(f"⚠️ AI extraction failed for {system_id}")
-                    systems = self._create_basic_system_info(system_id, processed_data)
-                    events = []
-            else:
-                # No AI extraction - create basic system info
-                logger.info("🔄 AI extraction disabled - creating basic system info")
+            # Phase 3 & 4: AI-Powered Knowledge Graph Creation
+            if not self.graph_builder:
+                logger.error(f"❌ Knowledge graph builder not available for {system_id} - requires AI configuration")
+                raise RuntimeError("Knowledge graph builder required. Check LLM configuration and dependencies.")
+            
+            # Create knowledge graph using AI analysis
+            graph_creation_success = self.graph_builder.create_knowledge_graph(system_id, processed_data)
+            
+            if graph_creation_success:
+                logger.info(f"✅ Knowledge graph created successfully for {system_id}")
+                # Create basic system info for return value compatibility
                 systems = self._create_basic_system_info(system_id, processed_data)
                 events = []
-                
-                # Phase 4: Legacy graph loading (if enabled and no AI)
-                if self.graph_loader:
-                    graph_success = self.graph_loader.load_systems_and_events(systems, events)
-                    if graph_success:
-                        logger.debug(f"🗄️ Loaded {len(systems)} systems, {len(events)} events into Neo4j")
-                    else:
-                        logger.warning(f"⚠️ Failed to load data into Neo4j for {system_id}")
+                return systems, events
+            else:
+                logger.error(f"❌ Knowledge graph creation failed for {system_id}")
+                raise RuntimeError(f"Knowledge graph creation failed for {system_id}. Check LLM connection, APOC plugin, and Neo4j setup.")
             
-            logger.info(f"✅ Complete pipeline finished for {system_id}")
-            return systems, events
             
+        except RuntimeError as e:
+            # Re-raise runtime errors (knowledge graph creation failures) for visibility
+            logger.error(f"❌ Knowledge graph creation failed for {system_id}: {e}")
+            raise e
         except Exception as e:
-            logger.error(f"❌ Failed to load system data for {system_id}: {e}")
+            logger.error(f"❌ Unexpected error for {system_id}: {e}")
             return [], []
     
     def load_all_systems(self) -> Tuple[List[SystemEntity], List[EventEntity]]:
@@ -980,22 +973,64 @@ class UniversalDataLoader:
     
     def _create_basic_system_info(self, system_id: str, processed_data: Dict[str, Any]) -> List[SystemEntity]:
         """Create basic system info without AI (fallback)"""
-        # This creates a basic SystemEntity object from processed data
-        # You can extend this to parse basic info without AI
-        return [SystemEntity(
+        # Parse basic info from the processed data
+        rhel_version = "unknown"
+        environment = "unknown"
+        services = []
+        package_count = 0
+        
+        # Extract basic info from files
+        for file_path, file_data in processed_data.items():
+            if isinstance(file_data, dict):
+                content = file_data.get('cleaned_content', '')
+                
+                # Parse RHEL version from redhat-release
+                if 'redhat-release' in file_path and content:
+                    if 'release' in content:
+                        import re
+                        match = re.search(r'release (\d+\.\d+)', content)
+                        if match:
+                            rhel_version = match.group(1)
+                
+                # Count packages
+                if 'packages.txt' in file_path and content:
+                    package_count = len([line for line in content.split('\n') if line.strip()])
+                
+                # Extract services from systemd files
+                if 'systemd/system' in file_path and file_path.endswith('.service'):
+                    service_name = file_path.split('/')[-1].replace('.service', '')
+                    services.append(service_name)
+        
+        # Determine environment from system_id patterns
+        if 'prod' in system_id.lower():
+            environment = "production"
+        elif 'stage' in system_id.lower() or 'staging' in system_id.lower():
+            environment = "staging"
+        elif 'dev' in system_id.lower():
+            environment = "development"
+        
+        # Create SystemEntity with backward compatibility attributes
+        system = SystemEntity(
             system_id=system_id,
             name=system_id,
-            system_type="unknown",
-            version="unknown",
-            environment="unknown",
-            services=[],
+            system_type="rhel_server",
+            version=rhel_version,
+            environment=environment,
+            services=services,
             components=[]
-        )]
+        )
+        
+        # Add backward compatibility attributes for Neo4jGraphLoader
+        system.hostname = system_id  # Add hostname attribute
+        system.rhel_version = rhel_version  # Add rhel_version attribute
+        system.package_count = package_count  # Add package_count attribute
+        
+        return [system]
     
     def close(self):
         """Clean up resources"""
-        if hasattr(self, 'ai_extractor') and self.ai_extractor:
-            self.ai_extractor.close()
+        if hasattr(self, 'graph_builder') and self.graph_builder:
+            self.graph_builder.close()
         if hasattr(self, 'graph_loader') and self.graph_loader:
             self.graph_loader.close()
         logger.info("🧹 UniversalDataLoader resources cleaned up")

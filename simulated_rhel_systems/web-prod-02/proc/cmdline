@@ -1,0 +1,1 @@
+BOOT_IMAGE=(hd0,gpt2)/vmlinuz-5.14.0-162.23.1.el9_1.x86_64 root=UUID=12345678-1234-1234-1234-123456789012 ro rhgb quiet

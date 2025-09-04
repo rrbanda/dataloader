@@ -11,9 +11,9 @@ llm_config:
   
   # Fallback values (used if env vars not set)
   fallback_config:
-    base_url: "http://localhost:8000/v1"
-    api_key: "your-api-key"
-    model: "gpt-3.5-turbo"
+    base_url: "https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1"
+    api_key: "${OPENAI_API_KEY}"
+    model: "llama-4-scout-17b-16e-w4a16"
     timeout: 180
 
 # Data Sources Configuration (easily extensible)
@@ -46,6 +46,24 @@ data_sources:
       logs: ["**/logs/**/*.log"]
       configs: ["**/config/**/*.yaml", "**/config/**/*.json"]
       metrics: ["**/metrics/**/*.json"]
+      
+  # Example: Security/Incident data (for Graph RAG demos)
+  security_data:
+    type: "filesystem"
+    base_path: "security_incidents"
+    file_patterns:
+      incidents: ["**/*incident*.txt", "**/*alert*.json"]
+      reports: ["**/*report*.md", "**/*analysis*.txt"]
+      logs: ["**/security*.log", "**/audit*.log"]
+      
+  # Example: Documentation/Knowledge base
+  documents:
+    type: "filesystem"
+    base_path: "knowledge_base"
+    file_patterns:
+      manuals: ["**/*.md", "**/*.txt"]
+      procedures: ["**/process_*.md", "**/howto_*.txt"]
+      faqs: ["**/faq*.md", "**/qa*.txt"]
 
 # Text Processing Configuration
 text_processing:
@@ -53,6 +71,17 @@ text_processing:
     max_chunk_size: 2000
     chunk_overlap: 200
     separators: ["\n\n", "\n", " ", ""]
+    # RAG-optimized chunking (extend existing)
+    strategy: "recursive"  # recursive, semantic, fixed
+    preserve_entities: true  # Keep entities together
+    context_window: 3        # Sentences of context
+    
+  # Vector embeddings (new - for RAG)
+  embeddings:
+    enabled: false           # Set to true when ready for RAG
+    model: "text-embedding-ada-002"  # or sentence-transformers
+    batch_size: 100
+    store_with_graph: true   # Link embeddings to graph nodes
     
   cleaning:
     remove_ansi_codes: true

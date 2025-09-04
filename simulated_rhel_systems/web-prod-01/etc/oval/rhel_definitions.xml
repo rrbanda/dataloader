@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<oval_definitions>
+    <generator>
+        <product_name>Red Hat OVAL Content</product_name>
+        <product_version>9.2</product_version>
+    </generator>
+    <definitions>
+        <!-- CVE-2024-12345: httpd vulnerability -->
+        <definition class="vulnerability" id="oval:com.redhat.rhsa:def:20241234">
+            <title>RHSA-2024:1234: httpd security update (Important)</title>
+            <affected family="unix">
+                <platform>Red Hat Enterprise Linux 9.2</platform>
+            </affected>
+        </definition>
+    </definitions>
+</oval_definitions>

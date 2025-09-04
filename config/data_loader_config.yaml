@@ -13,6 +13,7 @@ llm_config:
   # Fallback values (used if env vars not set)
   fallback_config:
     base_url: "https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1"
+    api_key: "${OPENAI_API_KEY}"
     model: "llama-4-scout-17b-16e-w4a16"
     timeout: 180
 
@@ -42,7 +43,7 @@ neo4j_config:
 data_sources:
   primary_data:
     type: "filesystem"
-    base_path: "sample_data"
+    base_path: "simulated_rhel_systems"
     description: "Simulated RHEL system files for development and testing"
     file_patterns:
       config_files:
@@ -89,7 +90,7 @@ text_processing:
     log_patterns:
       yum_log: '%{TIMESTAMP_ISO8601:timestamp} %{WORD:action}: %{DATA:package}'
       dnf_log: '%{TIMESTAMP_ISO8601:timestamp} INFO dnf: %{DATA:message}'
-      audit_log: 'type=%{WORD:type} msg=audit\\(%{NUMBER:timestamp}\\.'
+      audit_log: 'type=%{WORD:type} msg=audit\\(%{NUMBER:timestamp}\\):'
     
     config_formats:
       - "key=value"
