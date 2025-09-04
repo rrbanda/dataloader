@@ -1,0 +1,214 @@
+# RHEL Data Loader Configuration
+# Extends existing SafePromptLoader pattern for unified data processing
+# Version: 1.0.0
+
+# LLM Configuration (uses environment variables from setup.sh)
+llm_config:
+  # Use existing environment variables from your setup.sh
+  base_url_env: "OPENAI_BASE_URL"  # Points to your Red Hat endpoint
+  api_key_env: "OPENAI_API_KEY"    # Points to your Red Hat API key
+  model_env: "MODEL"               # Points to your model name
+  timeout_env: "HTTP_TIMEOUT"     # Request timeout
+  
+  # Fallback values (used if env vars not set)
+  fallback_config:
+    base_url: "https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1"
+    model: "llama-4-scout-17b-16e-w4a16"
+    timeout: 180
+
+# Neo4j Database Configuration (uses environment variables from setup.sh)
+neo4j_config:
+  # Use existing environment variables from your setup.sh
+  uri_env: "NEO4J_URI"           # Points to your Neo4j instance
+  username_env: "NEO4J_USERNAME" # Neo4j username
+  password_env: "NEO4J_PASSWORD" # Neo4j password
+  database_env: "NEO4J_DATABASE" # Database name (optional, defaults to 'neo4j')
+  
+  # Fallback values (used if env vars not set)
+  fallback_config:
+    uri: "bolt://localhost:7687"
+    username: "neo4j"
+    password: "password"
+    database: "neo4j"  # Use default database (Community Edition compatible)
+  
+  # Database management options
+  management:
+    auto_create_database: true      # Create database if it doesn't exist
+    clear_on_startup: false         # Clear existing data on startup
+    backup_before_clear: true       # Backup data before clearing
+    max_connections: 50             # Connection pool size
+
+# Data Source Configuration (extensible for different data types)
+data_sources:
+  primary_data:
+    type: "filesystem"
+    base_path: "sample_data"
+    description: "Simulated RHEL system files for development and testing"
+    file_patterns:
+      config_files:
+        - "etc/redhat-release"
+        - "etc/yum.conf"
+        - "etc/yum.repos.d/*.repo"
+        - "etc/security/limits.conf"
+      log_files:
+        - "var/log/yum.log"
+        - "var/log/dnf.log"
+        - "var/log/messages"
+        - "var/log/audit/audit.log"
+      system_files:
+        - "var/lib/rpm/packages.txt"
+        - "usr/lib/systemd/system/*.service"
+        - "proc/version"
+        - "proc/uptime"
+        - "proc/cmdline"
+      
+  # Future data sources (extensible)
+  satellite_api:
+    type: "api"
+    enabled: false
+    description: "Red Hat Satellite API integration (future)"
+    
+  insights_api:
+    type: "api" 
+    enabled: false
+    description: "Red Hat Insights API integration (future)"
+
+# Text Processing Configuration
+text_processing:
+  chunking:
+    max_chunk_size: 2000
+    chunk_overlap: 200
+    separators: ["\n\n", "\n", " ", ""]
+  
+  cleaning:
+    remove_ansi_codes: true
+    normalize_whitespace: true
+    remove_debug_logs: true
+    
+  parsing:
+    log_patterns:
+      yum_log: '%{TIMESTAMP_ISO8601:timestamp} %{WORD:action}: %{DATA:package}'
+      dnf_log: '%{TIMESTAMP_ISO8601:timestamp} INFO dnf: %{DATA:message}'
+      audit_log: 'type=%{WORD:type} msg=audit\\(%{NUMBER:timestamp}\\.'
+    
+    config_formats:
+      - "key=value"
+      - "ini_format"
+      - "yaml_format"
+
+# Entity Extraction Configuration  
+entity_extraction:
+  models:
+    system_info:
+      fields:
+        - system_id
+        - hostname
+        - rhel_version
+        - environment
+        - services
+        - package_count
+        - ip_address
+      validation_rules:
+        rhel_version: "Must match format X.Y"
+        environment: "Must be one of: production, staging, development"
+        
+    patch_events:
+      fields:
+        - patch_id
+        - system_id
+        - timestamp
+        - success
+        - packages_updated
+        - error_message
+      validation_rules:
+        patch_id: "Must start with RHSA-, RHBA-, or RHEA-"
+        timestamp: "Must be valid ISO format"
+
+# Processing Pipeline Configuration
+pipeline:
+  phases:
+    ingestion:
+      enabled: true
+      parallel_processing: true
+      max_workers: 4
+      
+    text_processing:
+      enabled: true
+      use_open_source_tools: true
+      fallback_to_basic: true
+      
+    ai_extraction:
+      enabled: true
+      retry_on_failure: true
+      max_retries: 3
+      batch_processing: true
+      
+    graph_loading:
+      enabled: true
+      auto_create_indexes: true
+      clear_on_startup: false
+      backup_before_clear: true
+      
+    validation:
+      enabled: true
+      strict_mode: false
+      auto_fix_errors: true
+
+# Output Configuration
+output:
+  formats:
+    - "structured_entities"
+    - "json_export"
+    - "csv_export"
+    
+  validation:
+    required_fields: ["system_id", "timestamp"]
+    data_quality_checks: true
+
+# Data cleanup configuration
+data_cleanup:
+  auto_cleanup_on_load: true
+  backup_old_data: true
+  cleanup_strategies:
+    - "clear_existing_nodes"
+    - "preserve_metadata"
+  
+# Integration with existing system
+integration:
+  graph_builder_compatibility: true
+  preserve_existing_interfaces: true
+  backward_compatibility: true
+
+# Environment-specific overrides (matches your agent_prompts.yaml pattern)
+environments:
+  development:
+    pipeline:
+      ai_extraction:
+        max_retries: 1  # Faster iteration
+    text_processing:
+      chunking:
+        max_chunk_size: 1000  # Smaller chunks for testing
+        
+  production:
+    pipeline:
+      ai_extraction:
+        max_retries: 5  # More resilient
+        batch_processing: true
+    text_processing:
+      parallel_processing: true
+      
+  testing:
+    pipeline:
+      ai_extraction:
+        enabled: false  # Use mock data for tests
+    data_sources:
+      rhel_systems:
+        base_path: "test_data/mock_systems"
+
+# Configuration metadata (matches your existing pattern)
+metadata:
+  version: "1.0.0"
+  last_updated: "2024-01-15"
+  schema_version: "1.0"
+  maintainer: "RHEL Intelligence Team"
+  extends: "agent_prompts.yaml"

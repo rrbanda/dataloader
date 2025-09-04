@@ -1,0 +1,40 @@
+# Universal DataLoader - AI-Powered Knowledge Graph Construction
+# Domain-agnostic data loading for any use case
+##############################################################################
+
+# Core LangChain & AI
+langchain==0.3.9
+langchain-community==0.3.9
+langchain-openai==0.3.9
+langchain-experimental==0.3.3
+
+# Neo4j Integration
+langchain-neo4j==0.4.0
+neo4j==5.25.0
+
+# LLM Integration
+openai>=1.13.3
+
+# Optional: Advanced text processing
+unstructured>=0.10.0
+langchain-text-splitters>=0.3.0
+
+# Optional: Log parsing
+pygrok>=1.0.0
+
+# Configuration & Environment
+python-dotenv>=1.0.0
+pyyaml>=6.0.0
+
+# Data handling
+pydantic>=2.5.0
+typing-extensions>=4.7.0
+
+# Optional: Additional file format support
+pypdf>=3.0.0  # For PDF processing
+beautifulsoup4>=4.11.0  # For HTML processing
+markdown>=3.4.0  # For Markdown processing
+
+# Development & Testing (optional)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
