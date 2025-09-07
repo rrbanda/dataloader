@@ -7,6 +7,8 @@ Extensible architecture for different knowledge graph creation strategies
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 import logging
+import os
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +78,9 @@ class AIGraphBuilder(GraphBuilder):
             llm_config: LLM configuration (endpoint, model, API key)
             neo4j_config: Neo4j connection configuration
         """
+        # Force reload environment variables to get working API key
+        load_dotenv(override=True)
+        
         self.llm_config = llm_config
         self.neo4j_config = neo4j_config
         self.llm = None
@@ -88,7 +93,7 @@ class AIGraphBuilder(GraphBuilder):
             from langchain_core.documents import Document
             from langchain_neo4j import Neo4jGraph
             
-            # Initialize LLM
+            # Initialize LLM using config values
             self.llm = ChatOpenAI(
                 base_url=llm_config['base_url'],
                 api_key=llm_config['api_key'],
@@ -112,13 +117,13 @@ class AIGraphBuilder(GraphBuilder):
                 allowed_relationships=self._get_universal_relationships()
             )
             
-            logger.info(f"🧠 AI Graph Builder initialized with {llm_config['model']}")
+            logger.info(f"AI Graph Builder initialized with {os.getenv('MODEL')}")
             
         except ImportError as e:
-            logger.error(f"❌ LangChain dependencies not available: {e}")
+            logger.error(f"LangChain dependencies not available: {e}")
             raise RuntimeError("AI Graph Builder requires LangChain. Install with: pip install langchain langchain-experimental langchain-openai langchain-neo4j")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize AI Graph Builder: {e}")
+            logger.error(f"Failed to initialize AI Graph Builder: {e}")
             raise RuntimeError(f"AI Graph Builder initialization failed: {e}")
     
     def _get_universal_node_types(self) -> List[str]:
@@ -188,7 +193,7 @@ class AIGraphBuilder(GraphBuilder):
         4. Returns success/failure status
         """
         if not self.graph_transformer or not self.neo4j_graph:
-            logger.error("❌ AI Graph Builder not properly initialized")
+            logger.error("AI Graph Builder not properly initialized")
             return False
         
         try:
@@ -196,7 +201,7 @@ class AIGraphBuilder(GraphBuilder):
             context_text = self._build_analysis_context(system_id, processed_data)
             
             if not context_text.strip():
-                logger.warning(f"⚠️ No content available for {system_id}")
+                logger.warning(f"No content available for {system_id}")
                 return False
             
             # Create LangChain document for processing
@@ -211,27 +216,27 @@ class AIGraphBuilder(GraphBuilder):
                 }
             )
             
-            logger.info(f"🧠 Creating knowledge graph for {system_id} ({len(context_text)} chars)")
+            logger.info(f"Creating knowledge graph for {system_id} ({len(context_text)} chars)")
             
             # AI-powered graph creation
             graph_documents = self.graph_transformer.convert_to_graph_documents([document])
             
             if not graph_documents:
-                logger.warning(f"⚠️ No graph structure extracted from {system_id}")
+                logger.warning(f"No graph structure extracted from {system_id}")
                 return False
             
             # Log what was extracted
             graph_doc = graph_documents[0]
-            logger.info(f"✅ AI extracted {len(graph_doc.nodes)} entities, {len(graph_doc.relationships)} relationships")
+            logger.info(f"AI extracted {len(graph_doc.nodes)} entities, {len(graph_doc.relationships)} relationships")
             
             # Store in Neo4j
             self.neo4j_graph.add_graph_documents(graph_documents)
             
-            logger.info(f"🗄️ Knowledge graph created successfully for {system_id}")
+            logger.info(f"Knowledge graph created successfully for {system_id}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Knowledge graph creation failed for {system_id}: {e}")
+            logger.error(f"Knowledge graph creation failed for {system_id}: {e}")
             return False
     
     def _build_analysis_context(self, system_id: str, processed_data: Dict[str, Any]) -> str:
@@ -277,7 +282,7 @@ Extract entities that represent real infrastructure, applications, and operation
         if self.neo4j_graph:
             try:
                 self.neo4j_graph.close()
-                logger.info("🗄️ AI Graph Builder connection closed")
+                logger.info("AI Graph Builder connection closed")
             except:
                 pass
 
@@ -297,13 +302,13 @@ class RuleBasedGraphBuilder(GraphBuilder):
         self.rules_config = rules_config
         self.neo4j_config = neo4j_config
         # Implementation would go here
-        logger.info("🔧 Rule-based Graph Builder initialized")
+        logger.info("Rule-based Graph Builder initialized")
     
     def create_knowledge_graph(self, system_id: str, processed_data: Dict[str, Any]) -> bool:
         """Create graph using predefined rules and patterns"""
         # Implementation would extract entities using regex patterns,
         # configuration templates, etc.
-        logger.info(f"🔧 Creating rule-based knowledge graph for {system_id}")
+        logger.info(f"Creating rule-based knowledge graph for {system_id}")
         return True
     
     def get_supported_domains(self) -> List[str]:

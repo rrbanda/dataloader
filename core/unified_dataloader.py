@@ -44,7 +44,7 @@ except ImportError:
     INSTRUCTOR_AVAILABLE = False
 
 try:
-    from .graph_builders import GraphBuilder, create_graph_builder
+    from core.graph_builders import GraphBuilder, create_graph_builder
     GRAPH_BUILDERS_AVAILABLE = True
 except ImportError:
     GRAPH_BUILDERS_AVAILABLE = False
@@ -122,7 +122,7 @@ class FilesystemDataSourceAdapter(DataSourceAdapter):
             logger.debug(f"📋 Found {len(systems)} systems: {systems}")
             return systems
         except Exception as e:
-            logger.error(f"❌ Failed to list systems: {e}")
+            logger.error(f" Failed to list systems: {e}")
             return []
     
     def _find_files(self, base_path: Path, pattern: str) -> List[Path]:
@@ -201,7 +201,7 @@ class TextProcessor:
                 }
                 
             except Exception as e:
-                logger.error(f"❌ Failed to process {file_path}: {e}")
+                logger.error(f" Failed to process {file_path}: {e}")
                 processed[file_path] = {
                     'error': str(e),
                     'raw_content': content[:1000]  # First 1000 chars for debugging
@@ -390,7 +390,7 @@ class LangChainAIExtractor:
             logger.info(f"🧠 LangChain AI extractor initialized with {llm_config['model']}")
             
         except Exception as e:
-            logger.error(f"❌ Failed to initialize LangChain AI extractor: {e}")
+            logger.error(f" Failed to initialize LangChain AI extractor: {e}")
             self.llm = None
             self.graph_transformer = None
     
@@ -503,7 +503,7 @@ class LangChainAIExtractor:
             
             # Log extraction results
             graph_doc = graph_documents[0]
-            logger.info(f"✅ Extracted {len(graph_doc.nodes)} nodes, {len(graph_doc.relationships)} relationships")
+            logger.info(f" Extracted {len(graph_doc.nodes)} nodes, {len(graph_doc.relationships)} relationships")
             
             # Load directly to Neo4j - following LangChain example exactly
             self.neo4j_graph.add_graph_documents(graph_documents)
@@ -512,7 +512,7 @@ class LangChainAIExtractor:
             return True
             
         except Exception as e:
-            logger.error(f"❌ AI extraction failed for {system_id}: {e}")
+            logger.error(f" AI extraction failed for {system_id}: {e}")
             return False
     
     def _build_extraction_context(self, system_id: str, processed_data: Dict[str, Any]) -> str:
@@ -598,7 +598,7 @@ class Neo4jGraphLoader:
                 self._create_indexes_and_constraints()
                 
             except Exception as e:
-                logger.error(f"❌ Failed to connect to Neo4j: {e}")
+                logger.error(f" Failed to connect to Neo4j: {e}")
                 self.driver = None
         else:
             logger.warning("⚠️ Neo4j driver not available - graph loading disabled")
@@ -624,11 +624,11 @@ class Neo4jGraphLoader:
                 # Create relationships
                 relationships_created = self._create_relationships(session, systems, events)
                 
-                logger.info(f"✅ Graph loading complete: {systems_loaded} systems, {events_loaded} events, {relationships_created} relationships")
+                logger.info(f" Graph loading complete: {systems_loaded} systems, {events_loaded} events, {relationships_created} relationships")
                 return True
                 
         except Exception as e:
-            logger.error(f"❌ Graph loading failed: {e}")
+            logger.error(f" Graph loading failed: {e}")
             return False
     
     def _create_indexes_and_constraints(self):
@@ -663,10 +663,10 @@ class Neo4jGraphLoader:
                 
             logger.info("🧹 Clearing existing graph data...")
             session.run("MATCH (n) DETACH DELETE n")
-            logger.info("✅ Graph data cleared")
+            logger.info(" Graph data cleared")
             
         except Exception as e:
-            logger.error(f"❌ Failed to clear data: {e}")
+            logger.error(f" Failed to clear data: {e}")
     
     def _load_systems(self, session, systems: List[SystemEntity]) -> int:
         """Load system nodes into Neo4j"""
@@ -706,7 +706,7 @@ class Neo4jGraphLoader:
                 loaded_count += 1
                 
             except Exception as e:
-                logger.error(f"❌ Failed to load system {system.system_id}: {e}")
+                logger.error(f" Failed to load system {system.system_id}: {e}")
         
         return loaded_count
     
@@ -744,7 +744,7 @@ class Neo4jGraphLoader:
                 loaded_count += 1
                 
             except Exception as e:
-                logger.error(f"❌ Failed to load event {event.event_id}: {e}")
+                logger.error(f" Failed to load event {event.event_id}: {e}")
         
         return loaded_count
     
@@ -766,7 +766,7 @@ class Neo4jGraphLoader:
                 relationships_created += 1
                 
         except Exception as e:
-            logger.error(f"❌ Failed to create relationships: {e}")
+            logger.error(f" Failed to create relationships: {e}")
         
         return relationships_created
     
@@ -797,7 +797,7 @@ class Neo4jGraphLoader:
                     # Database doesn't exist, try to create it
                     logger.info(f"🏗️ Creating database: {self.database}")
                     session.run(f"CREATE DATABASE `{self.database}`")
-                    logger.info(f"✅ Database created: {self.database}")
+                    logger.info(f" Database created: {self.database}")
                 else:
                     logger.info(f"🗄️ Database already exists: {self.database}")
                     
@@ -917,29 +917,29 @@ class UniversalDataLoader:
             
             # Phase 3 & 4: AI-Powered Knowledge Graph Creation
             if not self.graph_builder:
-                logger.error(f"❌ Knowledge graph builder not available for {system_id} - requires AI configuration")
+                logger.error(f" Knowledge graph builder not available for {system_id} - requires AI configuration")
                 raise RuntimeError("Knowledge graph builder required. Check LLM configuration and dependencies.")
             
             # Create knowledge graph using AI analysis
             graph_creation_success = self.graph_builder.create_knowledge_graph(system_id, processed_data)
             
             if graph_creation_success:
-                logger.info(f"✅ Knowledge graph created successfully for {system_id}")
+                logger.info(f" Knowledge graph created successfully for {system_id}")
                 # Create basic system info for return value compatibility
                 systems = self._create_basic_system_info(system_id, processed_data)
                 events = []
                 return systems, events
             else:
-                logger.error(f"❌ Knowledge graph creation failed for {system_id}")
+                logger.error(f" Knowledge graph creation failed for {system_id}")
                 raise RuntimeError(f"Knowledge graph creation failed for {system_id}. Check LLM connection, APOC plugin, and Neo4j setup.")
             
             
         except RuntimeError as e:
             # Re-raise runtime errors (knowledge graph creation failures) for visibility
-            logger.error(f"❌ Knowledge graph creation failed for {system_id}: {e}")
+            logger.error(f" Knowledge graph creation failed for {system_id}: {e}")
             raise e
         except Exception as e:
-            logger.error(f"❌ Unexpected error for {system_id}: {e}")
+            logger.error(f" Unexpected error for {system_id}: {e}")
             return [], []
     
     def load_all_systems(self) -> Tuple[List[SystemEntity], List[EventEntity]]:
@@ -963,7 +963,7 @@ class UniversalDataLoader:
         # Data already loaded to Neo4j during individual system processing (LangChain approach)
         # No separate batch loading needed - it's done during AI extraction
         
-        logger.info(f"✅ Batch processing complete: {len(all_systems)} systems, {len(all_events)} events")
+        logger.info(f" Batch processing complete: {len(all_systems)} systems, {len(all_events)} events")
         logger.info("🗄️ Graph data already loaded during AI extraction (LangChain approach)")
         return all_systems, all_events
     

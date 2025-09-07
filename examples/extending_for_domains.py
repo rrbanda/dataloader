@@ -139,7 +139,7 @@ def demo_multi_domain_usage():
     business_builder.close()
     iot_builder.close()
     
-    print("✅ Multi-domain knowledge graphs created!")
+    print(" Multi-domain knowledge graphs created!")
 
 # Example 5: Custom Configuration Integration
 def integrate_with_dataloader_config():
@@ -212,10 +212,10 @@ def main():
     print("   - Unified knowledge graph with domain-specific optimization")
     
     print("\n💡 Key Benefits:")
-    print("   ✅ Extensible architecture")
-    print("   ✅ Domain-specific optimization")
-    print("   ✅ Maintains universal compatibility")
-    print("   ✅ Easy to add new domains")
+    print("    Extensible architecture")
+    print("    Domain-specific optimization")
+    print("    Maintains universal compatibility")
+    print("    Easy to add new domains")
     
     print("\n🔧 To extend for your domain:")
     print("   1. Create your custom builder function")

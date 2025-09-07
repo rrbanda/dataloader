@@ -226,3 +226,15 @@ embeddings/
 # LLM cache
 llm_cache/
 .langchain_cache/
+
+
+# Additional ignores for dataloader
+*.log
+test_output.log
+__pycache__/
+.env.*
+
+# Optional: Exclude generated sample data (uncomment next line if you don't want to commit sample data)
+# simulated_rhel_systems/
+
+simulated_rhel_systems

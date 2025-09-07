@@ -5,19 +5,19 @@
 echo "🚀 Setting up Universal DataLoader environment..."
 
 # Check if user has set their API key
-if [ "${OPENAI_API_KEY}" = "your-api-key-here" ] || [ -z "${OPENAI_API_KEY}" ]; then
+if [ -z "${OPENAI_API_KEY}" ]; then
     echo ""
     echo "⚠️  API KEY REQUIRED"
-    echo "🔑 Please set your Red Hat AI API key:"
+    echo "🔑 Please set your Red Hat AI API key first:"
     echo "   export OPENAI_API_KEY=\"your-actual-api-key\""
+    echo "   source setup_environment.sh"
     echo ""
-    echo "💡 Or copy env.example to .env and fill in your credentials"
-    echo ""
+    exit 1
 fi
 
 # LLM Configuration - Red Hat AI endpoint
 export OPENAI_BASE_URL="https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1"
-export OPENAI_API_KEY="${OPENAI_API_KEY:-your-api-key-here}"
+export OPENAI_API_KEY="${OPENAI_API_KEY}"
 export MODEL="llama-4-scout-17b-16e-w4a16"
 
 # Alternative: Local Ollama (if available)
@@ -35,14 +35,13 @@ export NEO4J_DATABASE="neo4j"
 export HTTP_TIMEOUT="180"
 export ENVIRONMENT="development"
 
-echo "✅ Environment variables set!"
-echo "📊 Sample data ready (15 systems, 120 events)"
+echo " Environment variables set!"
 echo ""
-echo "🔧 To test the dataloader:"
-echo "   python test_setup.py"
+echo "🔧 Next steps:"
+echo "   1. Generate sample data: python utils/rhel_filesystem_generator.py"
+echo "   2. Test setup: python test_setup.py"
+echo "   3. Run dataloader: python -c 'from core.unified_dataloader import get_universal_loader; loader = get_universal_loader(); systems, events = loader.load_all_systems(); loader.close()'"
 echo ""
-echo "💡 To use with actual AI/Neo4j:"
-echo "   1. Start Neo4j Desktop and create a database"
-echo "   2. Start Ollama: ollama serve (optional - for local LLM)"
-echo "   3. Pull model: ollama pull llama2 (optional)"
-echo "   4. Run loader: python test_setup.py"
+echo "💡 Prerequisites:"
+echo "   - Neo4j Desktop running with APOC plugin installed"
+echo "   - Valid Red Hat AI API key set"

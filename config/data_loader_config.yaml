@@ -2,20 +2,10 @@
 # Extends existing SafePromptLoader pattern for unified data processing
 # Version: 1.0.0
 
-# LLM Configuration (uses environment variables from setup.sh)
+# LLM Configuration
+# Uses environment variables directly: OPENAI_BASE_URL, OPENAI_API_KEY, MODEL, HTTP_TIMEOUT
 llm_config:
-  # Use existing environment variables from your setup.sh
-  base_url_env: "OPENAI_BASE_URL"  # Points to your Red Hat endpoint
-  api_key_env: "OPENAI_API_KEY"    # Points to your Red Hat API key
-  model_env: "MODEL"               # Points to your model name
-  timeout_env: "HTTP_TIMEOUT"     # Request timeout
-  
-  # Fallback values (used if env vars not set)
-  fallback_config:
-    base_url: "https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1"
-    api_key: "${OPENAI_API_KEY}"
-    model: "llama-4-scout-17b-16e-w4a16"
-    timeout: 180
+  enabled: true
 
 # Neo4j Database Configuration (uses environment variables from setup.sh)
 neo4j_config:

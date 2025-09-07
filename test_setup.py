@@ -13,17 +13,17 @@ def test_imports():
     print("🔍 Testing imports...")
     try:
         from core.unified_dataloader import get_universal_loader
-        print("✅ Core dataloader imports working")
+        print(" Core dataloader imports working")
         
         from neo4j import GraphDatabase
-        print("✅ Neo4j driver available")
+        print(" Neo4j driver available")
         
         import langchain
-        print("✅ LangChain available")
+        print(" LangChain available")
         
         return True
     except ImportError as e:
-        print(f"❌ Import failed: {e}")
+        print(f" Import failed: {e}")
         return False
 
 def test_configuration():
@@ -36,12 +36,12 @@ def test_configuration():
         llm_config = config.get_llm_config()
         neo4j_config = config.get_neo4j_config()
         
-        print(f"✅ LLM endpoint: {llm_config.get('base_url', 'NOT SET')}")
-        print(f"✅ Neo4j URI: {neo4j_config.get('uri', 'NOT SET')}")
-        print(f"✅ Environment: {config.environment}")
+        print(f" LLM endpoint: {llm_config.get('base_url', 'NOT SET')}")
+        print(f" Neo4j URI: {neo4j_config.get('uri', 'NOT SET')}")
+        print(f" Environment: {config.environment}")
         return True
     except Exception as e:
-        print(f"❌ Configuration test failed: {e}")
+        print(f" Configuration test failed: {e}")
         return False
 
 def test_data_availability():
@@ -49,16 +49,13 @@ def test_data_availability():
     print("\n📁 Testing data availability...")
     
     data_paths = [
-        "simulated_rhel_systems",
-        "demo_data/security_incidents", 
-        "demo_data/knowledge_base",
-        "demo_data/app_data"
+        "simulated_rhel_systems"
     ]
     
     available_sources = 0
     for path in data_paths:
         if Path(path).exists():
-            print(f"✅ {path}: Available")
+            print(f" {path}: Available")
             available_sources += 1
         else:
             print(f"⚠️ {path}: Not found")
@@ -81,13 +78,13 @@ def test_neo4j_connection():
         with driver.session() as session:
             result = session.run('RETURN 1 as test')
             record = result.single()
-            print(f"✅ Neo4j connected: {neo4j_uri}")
+            print(f" Neo4j connected: {neo4j_uri}")
             
         driver.close()
         return True
         
     except Exception as e:
-        print(f"❌ Neo4j connection failed: {e}")
+        print(f" Neo4j connection failed: {e}")
         print("💡 Make sure Neo4j Desktop is running")
         return False
 
@@ -100,7 +97,7 @@ def test_basic_dataloader():
         loader = get_universal_loader('development')
         systems = loader.list_available_systems()
         
-        print(f"✅ Found {len(systems)} systems: {systems[:3]}{'...' if len(systems) > 3 else ''}")
+        print(f" Found {len(systems)} systems: {systems[:3]}{'...' if len(systems) > 3 else ''}")
         
         if systems:
             # Test loading one system
@@ -108,13 +105,13 @@ def test_basic_dataloader():
             print(f"📋 Testing with system: {system_id}")
             
             rhel_systems, patch_events = loader.load_system_data(system_id)
-            print(f"✅ Loaded: {len(rhel_systems)} systems, {len(patch_events)} events")
+            print(f" Loaded: {len(rhel_systems)} systems, {len(patch_events)} events")
             
         loader.close()
         return True
         
     except Exception as e:
-        print(f"❌ Dataloader test failed: {e}")
+        print(f" Dataloader test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -150,7 +147,7 @@ def main():
             result = test_func()
             results.append(result)
         except Exception as e:
-            print(f"❌ Test {test_name} crashed: {e}")
+            print(f" Test {test_name} crashed: {e}")
             results.append(False)
     
     # Summary
@@ -158,7 +155,7 @@ def main():
     print("📋 TEST SUMMARY:")
     passed = sum(results)
     total = len(results)
-    print(f"✅ Passed: {passed}/{total} tests")
+    print(f" Passed: {passed}/{total} tests")
     
     if passed == total:
         print("🎉 All tests passed! Your dataloader is ready.")

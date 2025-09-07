@@ -10,6 +10,7 @@ import logging
 from typing import Dict, Any, Optional
 from pathlib import Path
 from functools import lru_cache
+# Removed dotenv dependency - using direct environment variables only
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,13 @@ class UnifiedConfigLoader:
         self.dataloader_config_path = self._get_dataloader_config_path()
         self._dataloader_config_cache = {}
         
-        logger.info(f"🔧 UnifiedConfigLoader initialized for environment: {environment}")
+        logger.info(f"UnifiedConfigLoader initialized for environment: {environment}")
     
     def _get_dataloader_config_path(self) -> str:
         """Get dataloader config path relative to current file"""
         current_dir = Path(__file__).parent
         return str(current_dir / "data_loader_config.yaml")
     
-    @lru_cache(maxsize=1)
     def _load_dataloader_config(self) -> Dict[str, Any]:
         """
         Load and cache dataloader configuration with safety checks
@@ -66,17 +66,20 @@ class UnifiedConfigLoader:
             
             config = yaml.safe_load(content)
             
+            # Substitute environment variables
+            config = self._substitute_env_vars(config)
+            
             # Validate configuration structure
             self._validate_dataloader_config(config)
             
-            logger.info(f"✅ Dataloader configuration loaded from {self.dataloader_config_path}")
+            logger.info(f"Dataloader configuration loaded from {self.dataloader_config_path}")
             return config
             
         except yaml.YAMLError as e:
-            logger.error(f"❌ Dataloader YAML parsing error: {str(e)}")
+            logger.error(f"Dataloader YAML parsing error: {str(e)}")
             return self._get_fallback_dataloader_config()
         except Exception as e:
-            logger.error(f"❌ Dataloader config loading error: {str(e)}")
+            logger.error(f"Dataloader config loading error: {str(e)}")
             return self._get_fallback_dataloader_config()
     
     def _validate_dataloader_config(self, config: Dict[str, Any]) -> None:
@@ -91,60 +94,48 @@ class UnifiedConfigLoader:
             if section not in config:
                 logger.warning(f"Missing dataloader config section: {section}")
         
-        logger.debug("✅ Dataloader configuration validation passed")
+        logger.debug("Dataloader configuration validation passed")
+    
+    def _substitute_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Recursively substitute environment variables in config values
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            Configuration with environment variables substituted
+        """
+        import re
+        
+        def substitute_value(value):
+            if isinstance(value, str):
+                # Find patterns like ${VAR_NAME}
+                pattern = r'\$\{([^}]+)\}'
+                matches = re.findall(pattern, value)
+                for var_name in matches:
+                    env_value = os.getenv(var_name)
+                    if env_value:
+                        value = value.replace(f'${{{var_name}}}', env_value)
+                return value
+            elif isinstance(value, dict):
+                return {k: substitute_value(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [substitute_value(item) for item in value]
+            else:
+                return value
+        
+        return substitute_value(config)
     
     def _get_fallback_dataloader_config(self) -> Dict[str, Any]:
         """
-        Provide hardcoded fallback dataloader config for safety
+        Provide minimal fallback config when YAML file is missing
         
         Returns:
-            Dictionary of fallback dataloader configuration
+            Dictionary of minimal fallback configuration
         """
-        logger.warning("🔄 Using fallback hardcoded dataloader config")
-        
-        return {
-            'llm_config': {
-                'base_url_env': 'OPENAI_BASE_URL',
-                'api_key_env': 'OPENAI_API_KEY',
-                'model_env': 'MODEL',
-                'timeout_env': 'HTTP_TIMEOUT',
-                'fallback_config': {
-                    'base_url': 'https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1',
-                    'model': 'llama-4-scout-17b-16e-w4a16',
-                    'timeout': 180
-                }
-            },
-            'data_sources': {
-                'rhel_systems': {
-                    'type': 'filesystem',
-                    'base_path': 'simulated_rhel_systems',
-                    'file_patterns': {
-                        'config_files': ['etc/redhat-release', 'etc/yum.conf'],
-                        'log_files': ['var/log/yum.log', 'var/log/messages'],
-                        'system_files': ['var/lib/rpm/packages.txt', 'usr/lib/systemd/system/*.service']
-                    }
-                }
-            },
-            'text_processing': {
-                'chunking': {
-                    'max_chunk_size': 2000,
-                    'chunk_overlap': 200,
-                    'separators': ['\n\n', '\n', ' ', '']
-                },
-                'cleaning': {
-                    'remove_ansi_codes': True,
-                    'normalize_whitespace': True
-                }
-            },
-            'pipeline': {
-                'phases': {
-                    'ai_extraction': {
-                        'enabled': True,
-                        'max_retries': 3
-                    }
-                }
-            }
-        }
+        logger.error("YAML config file not found!")
+        raise RuntimeError("Configuration file config/data_loader_config.yaml is required. No fallback available.")
     
     def get_llm_config(self) -> Dict[str, Any]:
         """
@@ -160,42 +151,23 @@ class UnifiedConfigLoader:
             # Resolve environment variables
             resolved_config = {}
             
-            # Get base URL
-            base_url_env = llm_config.get('base_url_env', 'OPENAI_BASE_URL')
-            resolved_config['base_url'] = os.getenv(
-                base_url_env, 
-                llm_config.get('fallback_config', {}).get('base_url', '')
-            )
+            # Simple direct environment variable resolution
+            resolved_config['base_url'] = os.getenv('OPENAI_BASE_URL', 'https://llama-4-scout-17b-16e-w4a16-maas-apicast-production.apps.prod.rhoai.rh-aiservices-bu.com:443/v1')
+            resolved_config['api_key'] = os.getenv('OPENAI_API_KEY', '')
+            resolved_config['model'] = os.getenv('MODEL', 'llama-4-scout-17b-16e-w4a16')
+            resolved_config['timeout'] = int(os.getenv('HTTP_TIMEOUT', '180'))
             
-            # Get API key
-            api_key_env = llm_config.get('api_key_env', 'OPENAI_API_KEY')
-            resolved_config['api_key'] = os.getenv(
-                api_key_env,
-                llm_config.get('fallback_config', {}).get('api_key', '')
-            )
-            
-            # Get model
-            model_env = llm_config.get('model_env', 'MODEL')
-            resolved_config['model'] = os.getenv(
-                model_env,
-                llm_config.get('fallback_config', {}).get('model', 'llama-4-scout-17b-16e-w4a16')
-            )
-            
-            # Get timeout
-            timeout_env = llm_config.get('timeout_env', 'HTTP_TIMEOUT')
-            resolved_config['timeout'] = int(os.getenv(
-                timeout_env,
-                str(llm_config.get('fallback_config', {}).get('timeout', 180))
-            ))
-            
-            logger.debug(f"✅ LLM config resolved: {resolved_config['base_url']}")
+            logger.debug(f"LLM config resolved: {resolved_config['base_url']}")
             return resolved_config
             
         except Exception as e:
-            logger.error(f"❌ Failed to get LLM config: {str(e)}")
-            return self._get_fallback_dataloader_config()['llm_config']['fallback_config']
+            logger.error(f"Failed to get LLM config: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            # NO FALLBACK - must use environment variables
+            raise RuntimeError(f"LLM configuration failed: {e}. Ensure OPENAI_API_KEY environment variable is set.")
     
-    def get_data_source_config(self, source_name: str = 'rhel_systems') -> Dict[str, Any]:
+    def get_data_source_config(self, source_name: str = 'primary_data') -> Dict[str, Any]:
         """
         Get configuration for a specific data source
         
@@ -218,11 +190,11 @@ class UnifiedConfigLoader:
                     env_overrides = env_config['data_sources'][source_name]
                     source_config.update(env_overrides)
             
-            logger.debug(f"✅ Data source config retrieved: {source_name}")
+            logger.debug(f"Data source config retrieved: {source_name}")
             return source_config
             
         except Exception as e:
-            logger.error(f"❌ Failed to get data source config for {source_name}: {str(e)}")
+            logger.error(f"Failed to get data source config for {source_name}: {str(e)}")
             return self._get_fallback_dataloader_config()['data_sources'].get(source_name, {})
     
     def get_text_processing_config(self) -> Dict[str, Any]:
@@ -248,11 +220,11 @@ class UnifiedConfigLoader:
                         else:
                             text_config[key] = value
             
-            logger.debug("✅ Text processing config retrieved")
+            logger.debug("Text processing config retrieved")
             return text_config
             
         except Exception as e:
-            logger.error(f"❌ Failed to get text processing config: {str(e)}")
+            logger.error(f"Failed to get text processing config: {str(e)}")
             return self._get_fallback_dataloader_config()['text_processing']
     
     def get_pipeline_config(self) -> Dict[str, Any]:
@@ -274,11 +246,11 @@ class UnifiedConfigLoader:
                     # Deep merge configuration
                     self._deep_merge(pipeline_config, env_overrides)
             
-            logger.debug("✅ Pipeline config retrieved")
+            logger.debug("Pipeline config retrieved")
             return pipeline_config
             
         except Exception as e:
-            logger.error(f"❌ Failed to get pipeline config: {str(e)}")
+            logger.error(f"Failed to get pipeline config: {str(e)}")
             return self._get_fallback_dataloader_config()['pipeline']
     
     def _deep_merge(self, base_dict: Dict, override_dict: Dict) -> None:
@@ -324,7 +296,7 @@ class UnifiedConfigLoader:
             config = self._load_dataloader_config()
             return config.get('entity_extraction', {})
         except Exception as e:
-            logger.error(f"❌ Failed to get entity extraction config: {str(e)}")
+            logger.error(f"Failed to get entity extraction config: {str(e)}")
             return {}
     
     def get_neo4j_config(self) -> Dict[str, Any]:
@@ -373,11 +345,11 @@ class UnifiedConfigLoader:
             management = neo4j_config.get('management', {})
             resolved_config['management'] = management
             
-            logger.debug(f"✅ Neo4j config resolved: {resolved_config['uri']}/{resolved_config['database']}")
+            logger.debug(f"Neo4j config resolved: {resolved_config['uri']}/{resolved_config['database']}")
             return resolved_config
             
         except Exception as e:
-            logger.error(f"❌ Failed to get Neo4j config: {str(e)}")
+            logger.error(f"Failed to get Neo4j config: {str(e)}")
             # Return safe fallback
             return {
                 'uri': 'bolt://localhost:7687',
@@ -407,7 +379,7 @@ class UnifiedConfigLoader:
                 'cleanup_strategies': ['clear_existing_nodes']
             })
         except Exception as e:
-            logger.error(f"❌ Failed to get cleanup config: {str(e)}")
+            logger.error(f"Failed to get cleanup config: {str(e)}")
             return {
                 'auto_cleanup_on_load': False,
                 'backup_old_data': True, 
@@ -422,9 +394,6 @@ class UnifiedConfigLoader:
             True if reload successful, False otherwise
         """
         try:
-            # Clear parent class cache
-            success = super().reload_config()
-            
             # Clear dataloader config cache
             self._load_dataloader_config.cache_clear()
             self._dataloader_config_cache.clear()
@@ -432,11 +401,11 @@ class UnifiedConfigLoader:
             # Reload dataloader config
             self._load_dataloader_config()
             
-            logger.info("🔄 All configurations reloaded successfully")
-            return success
+            logger.info("All configurations reloaded successfully")
+            return True
             
         except Exception as e:
-            logger.error(f"❌ Configuration reload failed: {str(e)}")
+            logger.error(f"Configuration reload failed: {str(e)}")
             return False
 
 # Create global instance following your pattern
