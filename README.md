@@ -15,6 +15,7 @@ Transform unstructured infrastructure data into intelligent knowledge graphs usi
 ## 📖 Table of Contents
 
 - [🎯 Overview](#-overview)
+- [🧭 Foundational Concepts](#-foundational-concepts)
 - [📚 Knowledge Graph Concepts](#-knowledge-graph-concepts)
 - [⚡ Quick Start](#-quick-start)
 - [📋 Prerequisites](#-prerequisites)
@@ -62,6 +63,177 @@ LangChain LLMGraphTransformer + LLM API → Intelligent entity extraction
 - **🌍 Domain Agnostic**: Works with IT infrastructure, security, business processes, documents
 - **⚡ Production Scale**: Handles enterprise workloads (1000+ systems, 15K+ entities)
 - **🔒 Enterprise Ready**: Security, configuration management, monitoring integration
+
+---
+
+## 🧭 Foundational Concepts
+
+### **For Users New to Graph Databases and Knowledge Graphs**
+
+If you're new to graph databases, Neo4j, or knowledge graphs, this section explains the fundamental concepts from the ground up.
+
+### **🗃️ Traditional vs Graph Databases**
+
+**Traditional Databases (Tables):**
+```
+servers.csv          services.csv         packages.csv
+server_id | status   service_id | port    package_id | version
+web-01   | active    httpd     | 80       openssl   | 3.0.1
+db-02    | active    mysql     | 3306     httpd     | 2.4.53
+```
+ **Problem**: Data is disconnected. Hard to answer "Which servers use vulnerable OpenSSL?"
+
+**Graph Database (Connected):**
+```
+    [Analytics-Dev-648] ──HOSTS──> [Httpd] ──USES──> [Httpd-Tools]
+            │                                         ↑
+            └──────HOSTS──> [Mysql] ──USES──────────┘
+```
+ **Solution**: Everything is connected. Easy to trace relationships and dependencies.
+
+### **🔗 What is Neo4j?**
+
+**Neo4j** is a graph database that stores data as **nodes** (things) and **relationships** (how things connect):
+
+- **Node**: A "thing" in your data (server, service, package, person, etc.)
+- **Relationship**: How two nodes connect (HOSTS, RUNS, USES, DEPENDS_ON, etc.)
+- **Property**: Details about nodes (in your system: `id` for identification)
+
+**Think of it like a social network for your infrastructure:**
+```
+[You] ──FRIENDS_WITH──> [Person] ──WORKS_AT──> [Company]
+[Analytics-Dev-648] ──HOSTS──> [Httpd] ──USES──> [Httpd-Tools]
+```
+
+### **🧠 What is a Knowledge Graph?**
+
+A **knowledge graph** is a smart way to organize information so computers can understand relationships and answer complex questions.
+
+**Example with your RHEL systems:**
+
+**Raw Data** (what you have):
+```
+/var/log/messages: "httpd started on Analytics-Dev-648"
+/var/lib/rpm/packages.txt: "httpd-tools-2.4.53 installed"
+/etc/redhat-release: "Red Hat Enterprise Linux release 9.3"
+```
+
+**Knowledge Graph** (what we create):
+```
+(Analytics-Dev-648:Server) ──HOSTS──> (Httpd:Service) ──USES──> (Httpd-Tools:Package)
+(Red Hat Enterprise Linux:System) ──HOSTS──> (Httpd:Service)
+```
+
+**Smart Questions You Can Now Ask:**
+- "Which servers would be affected by an Httpd-Tools vulnerability?"
+- "What services will stop if I reboot Analytics-Dev-648?"
+- "Show me all production web servers and their dependencies"
+
+### **🔍 What is GraphRAG?**
+
+**GraphRAG** = **Graph** + **Retrieval Augmented Generation**
+
+Traditional RAG:
+```
+Question → Search Documents → Send to LLM → Answer
+```
+
+GraphRAG:
+```
+Question → Query Knowledge Graph → Get Connected Data → Send to LLM → Smarter Answer
+```
+
+**Example:**
+
+**Question**: "Which production servers are vulnerable to CVE-2023-12345?"
+
+**Traditional Search**: Finds documents mentioning the CVE
+**GraphRAG**: Finds CVE → traces to affected packages → traces to services → traces to production servers
+
+**Result**: Complete impact analysis, not just document search.
+
+### **⚙️ How Raw RHEL Data Becomes a Graph Schema**
+
+Here's how your actual RHEL system files transform into a queryable knowledge graph:
+
+#### **Step 1: Raw Infrastructure Files**
+```
+/var/log/messages:
+  "Jan 15 14:23:01 Analytics-Dev-648 systemd[1]: Started The Apache HTTP Server"
+  "Jan 15 14:23:15 Analytics-Dev-648 httpd[5678]: Server configured"
+
+/etc/redhat-release:
+  "Red Hat Enterprise Linux release 9.3 (Plow)"
+
+/var/lib/rpm/packages.txt:
+  "httpd-tools-2.4.53-11.el9_2.5.x86_64"
+  "dnf-4.7.0-4.el9.noarch"
+```
+
+#### **Step 2: AI Analysis (LangChain + LLM)**
+The AI reads these files and understands:
+- "Analytics-Dev-648" is a server
+- "httpd" is a service (Apache web server)
+- "systemd" manages services
+- "httpd-tools" and "dnf" are packages 
+- These things have relationships
+
+#### **Step 3: Graph Schema Creation**
+```cypher
+// Nodes (things discovered)
+(:Server {id: "Analytics-Dev-648"})
+(:Service {id: "Httpd"})
+(:Package {id: "Httpd-Tools"})
+(:System {id: "Red Hat Enterprise Linux"})
+
+// Relationships (connections discovered)
+(Analytics-Dev-648)-[:HOSTS]->(Httpd)
+(Httpd)-[:USES]->(Httpd-Tools)
+(Red Hat Enterprise Linux)-[:HOSTS]->(Httpd)
+```
+
+#### **Step 4: Neo4j Storage**
+All this gets stored in Neo4j where you can query it:
+
+```cypher
+// Find all services on production web servers
+MATCH (server:Server)-[:HOSTS|RUNS]->(service:Service)
+WHERE server.id CONTAINS "Web-Prod"
+RETURN server.id, service.id
+```
+
+### **🎯 Why This Matters for Infrastructure**
+
+**Before (Traditional):**
+- Manual documentation that gets outdated
+- Siloed information in different systems
+- Hard to understand dependencies
+- Slow incident response
+
+**After (Knowledge Graph + GraphRAG):**
+- Automatic discovery of relationships
+- Live, connected infrastructure map  
+- Instant impact analysis
+- AI-powered intelligent operations
+
+**Real Benefits:**
+- **Security**: "Which servers use Httpd-Tools package?" → Instant answer
+- **Operations**: "What breaks if I restart Analytics-Dev-648?" → Complete dependency map
+- **Compliance**: "Show me all production systems with their services" → Automated audit
+- **Planning**: "What's the blast radius of updating Httpd?" → Risk assessment
+
+### **💡 Simple Mental Model**
+
+Think of your infrastructure as a **city**:
+- **Buildings** = Servers (nodes)
+- **Residents** = Services (nodes)  
+- **Utilities** = Packages (nodes)
+- **Roads** = Relationships (how they connect)
+
+Traditional documentation = **Static map**
+Knowledge Graph = **Live GPS with traffic data**
+
+GraphRAG = **Smart city assistant** that understands the whole system and can answer complex questions about traffic, dependencies, and impacts.
 
 ---
 
